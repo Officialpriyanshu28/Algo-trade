@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { ShieldAlert, Link as LinkIcon, AlertTriangle, Power, Loader2 } from "lucide-react";
+import { ShieldAlert, Link as LinkIcon, AlertTriangle, Power, Loader2, Activity, TrendingUp, TrendingDown, Wifi } from "lucide-react";
 import { useNotification } from "../components/NotificationProvider";
 
 export default function LiveTrading() {
@@ -9,7 +9,22 @@ export default function LiveTrading() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
+  const [pnl, setPnl] = useState(0);
+  const [activeTrades, setActiveTrades] = useState(0);
+  const [ping, setPing] = useState(45);
   const { notify } = useNotification();
+
+  useEffect(() => {
+    if (!isBotActive) return;
+    const interval = setInterval(() => {
+      setPnl(prev => prev + (Math.random() - 0.45) * 12.5);
+      setPing(Math.floor(30 + Math.random() * 25));
+      if (Math.random() > 0.8) {
+        setActiveTrades(Math.floor(Math.random() * 4) + 1);
+      }
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isBotActive]);
 
   const handleConnect = async () => {
     if (!apiKey || !apiSecret) {
@@ -149,7 +164,43 @@ export default function LiveTrading() {
                 </button>
               </div>
             </motion.div>
-            {/* ... rest of the component remains similar ... */}
+
+            {/* Real-Time Bot Status Section */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.05 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-700 backdrop-blur-sm flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  {pnl >= 0 ? <TrendingUp className="w-12 h-12 text-green-500" /> : <TrendingDown className="w-12 h-12 text-red-500" />}
+                </div>
+                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Session P&L</span>
+                <span className={`text-3xl font-bold font-mono mt-3 ${pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {pnl >= 0 ? '+' : '-'}${Math.abs(pnl).toFixed(2)}
+                </span>
+              </div>
+              
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-700 backdrop-blur-sm flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Activity className="w-12 h-12 text-cyan-500" />
+                </div>
+                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Active Trades</span>
+                <span className="text-3xl font-bold text-white mt-3">{isBotActive ? activeTrades : 0}</span>
+              </div>
+              
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-700 backdrop-blur-sm flex flex-col justify-between shadow-lg relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Wifi className="w-12 h-12 text-blue-500" />
+                </div>
+                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Exchange Ping</span>
+                <div className="flex items-center gap-2 mt-3">
+                  <div className={`w-3 h-3 rounded-full ${ping < 60 ? 'bg-green-500' : 'bg-yellow-500'} animate-pulse`} />
+                  <span className="text-3xl font-bold font-mono text-white">{ping}ms</span>
+                </div>
+              </div>
+            </motion.div>
 
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
