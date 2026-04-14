@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider, signInWithPopup, signOut, onAuthStateChanged, User, db } from '../firebase';
+import { auth, googleProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, User, db, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from '../firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useNotification } from './NotificationProvider';
 
@@ -7,6 +7,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: () => Promise<void>;
+  loginAsGuest: () => Promise<void>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
+  signupWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -35,8 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Sync to public profiles
           await setDoc(doc(db, 'public_profiles', user.uid), {
             uid: user.uid,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
+            displayName: user.isAnonymous ? 'Guest User' : user.displayName,
+            photoURL: user.isAnonymous ? null : user.photoURL,
             lastSeen: serverTimestamp()
           }, { merge: true });
         } catch (e) {
@@ -59,6 +62,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginAsGuest = async () => {
+    try {
+      await signInAnonymously(auth);
+      notify('success', 'Welcome Guest!', 'Successfully logged in anonymously.');
+    } catch (error: any) {
+      console.error('Guest login error:', error);
+      notify('error', 'Login Failed', error.message || 'An error occurred during guest login.');
+    }
+  };
+
+  const loginWithEmail = async (email: string, pass: string) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      notify('success', 'Welcome Back!', 'Successfully logged in.');
+    } catch (error: any) {
+      console.error('Email login error:', error);
+      notify('error', 'Login Failed', error.message || 'Invalid email or password.');
+      throw error;
+    }
+  };
+
+  const signupWithEmail = async (email: string, pass: string, name: string) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, { displayName: name });
+      }
+      notify('success', 'Account Created!', 'Welcome to the platform.');
+    } catch (error: any) {
+      console.error('Email signup error:', error);
+      notify('error', 'Signup Failed', error.message || 'Could not create account.');
+      throw error;
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -70,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginAsGuest, loginWithEmail, signupWithEmail, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );
