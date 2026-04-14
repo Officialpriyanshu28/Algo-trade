@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "users": {
+      "title": "User",
+      "description": "User profile and settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique user ID" },
+        "email": { "type": "string", "description": "User email" },
+        "displayName": { "type": "string", "description": "User display name" },
+        "photoURL": { "type": "string", "description": "User profile photo URL" },
+        "balance": { "type": "number", "description": "Virtual trading balance" },
+        "watchlist": { "type": "array", "items": { "type": "string" }, "description": "List of tracked asset IDs" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "strategies": {
+      "title": "Strategy",
+      "description": "Trading strategy defined by the user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "blocks": { "type": "array", "description": "Serialized strategy blocks" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "blocks"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "users",
+      "description": "User documents"
+    },
+    "/strategies/{strategyId}": {
+      "schema": "strategies",
+      "description": "User strategies"
+    }
+  }
+}

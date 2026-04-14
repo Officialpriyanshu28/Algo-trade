@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string
+    //   - photoURL: string
+    //   - balance: number
+    //   - createdAt: timestamp
+    //
+    // Collection: strategies
+    // Document ID: {strategyId}
+    // Fields:
+    //   - id: string
+    //   - userId: string (required)
+    //   - name: string (required)
+    //   - blocks: list (required)
+    //   - createdAt: timestamp
+    //
+    // Collection: broker_connections
+    // Document ID: {connectionId}
+    // Fields:
+    //   - userId: string (required)
+    //   - exchange: string (required)
+    //   - apiKey: string (required)
+    //   - apiSecret: string (required)
+    //   - status: string
+    //   - createdAt: timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "yaduvanshipriyanshukumar28@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isValidBrokerConnection(data) {
+      return data.keys().hasAll(['userId', 'exchange', 'apiKey', 'apiSecret']) &&
+             data.userId == request.auth.uid &&
+             data.exchange in ['Binance', 'Coinbase Pro', 'Kraken', 'Bybit'] &&
+             data.apiKey is string && data.apiKey.size() > 5 &&
+             data.apiSecret is string && data.apiSecret.size() > 5;
+    }
+
+    function isStrategyOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isRecent(time) {
+      return time > request.time - duration.value(5, 'm') &&
+             time < request.time + duration.value(5, 'm');
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             (!('watchlist' in data) || (data.watchlist is list && data.watchlist.size() < 100)) &&
+             (!('lastLogin' in data) || data.lastLogin is timestamp);
+    }
+
+    function isValidStrategy(data) {
+      return data.keys().hasAll(['userId', 'name', 'blocks']) &&
+             data.userId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.blocks is list && data.blocks.size() < 50;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+    }
+
+    match /public_profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    match /strategies/{strategyId} {
+      allow read: if isStrategyOwner();
+      allow create: if isAuthenticated() && isValidStrategy(request.resource.data);
+      allow update: if isStrategyOwner() && isValidStrategy(request.resource.data);
+      allow delete: if isStrategyOwner();
+    }
+
+    match /broker_connections/{connectionId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && isValidBrokerConnection(request.resource.data);
+      allow update: if isDocOwner() && isValidBrokerConnection(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+  }
+}
