@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, googleProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, User, db, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from '../firebase';
+import { auth, googleProvider, signInWithPopup, signInAnonymously, signOut, onAuthStateChanged, User, db, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from '../firebase';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useNotification } from './NotificationProvider';
 
@@ -74,8 +74,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithEmail = async (email: string, pass: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, pass);
-      notify('success', 'Welcome Back!', 'Successfully logged in.');
+      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      if (userCredential.user && !userCredential.user.emailVerified) {
+        notify('warning', 'Email Not Verified', 'Please check your inbox to verify your email address.');
+      } else {
+        notify('success', 'Welcome Back!', 'Successfully logged in.');
+      }
     } catch (error: any) {
       console.error('Email login error:', error);
       notify('error', 'Login Failed', error.message || 'Invalid email or password.');
@@ -88,8 +92,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
       if (userCredential.user) {
         await updateProfile(userCredential.user, { displayName: name });
+        await sendEmailVerification(userCredential.user);
       }
-      notify('success', 'Account Created!', 'Welcome to the platform.');
+      notify('success', 'Account Created!', 'Welcome! Please check your email to verify your account.');
     } catch (error: any) {
       console.error('Email signup error:', error);
       notify('error', 'Signup Failed', error.message || 'Could not create account.');
