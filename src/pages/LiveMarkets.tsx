@@ -104,6 +104,11 @@ export default function LiveMarkets() {
       console.log('Market WebSocket Disconnected');
     };
 
+    ws.onerror = (error) => {
+      console.error('Market WebSocket Error:', error);
+      setIsConnected(false);
+    };
+
     // Simulate some jitter for non-crypto markets
     const jitterInterval = setInterval(() => {
       setMarkets(prev => prev.map(m => {
